@@ -1,4 +1,5 @@
 import os
+import sys
 from telethon import TelegramClient, events
 
 api_id = 123# your API ID
@@ -17,7 +18,7 @@ def is_file_uploaded(file_name):
 
 async def main():
     await client.connect()
-
+    
     if not await client.is_user_authorized():
         phone_number = input("Enter your phone number: ")
         await client.send_code_request(phone_number)
@@ -37,14 +38,19 @@ async def main():
             file_extension = message.file.ext
             file_name = f'{message.id}_{message.file.name}'
 
-            if file_extension in ['.mp4', '.mkv', '.avi', '.zip', '.rar']:
+            if file_extension in ['.wav','.mp3','.mp4', '.mkv', '.avi', '.zip', '.rar']:
                 if is_file_uploaded(file_name):
                     continue
 
                 max_attempts = 3
                 for attempt in range(max_attempts):
                     try:
-                        await message.download_media('downloads/' + file_name)
+                        def callback(current, total):
+                            currentnum = current * 100 / total
+                            sys.stdout.write("\r%d%% Downloading ...%s " % (currentnum,file_name))
+                            sys.stdout.flush()
+                        await message.download_media('downloads/' + file_name,progress_callback=callback)
+                        print(" ----> Download completed")
                         break
                     except Exception as e:
                         if attempt < max_attempts - 1:
@@ -59,11 +65,16 @@ async def main():
 
                 for attempt in range(max_attempts):
                     try:
+                        def callback(current, total):
+                            currentnum = current * 100 / total
+                            sys.stdout.write("\r%d%% UPloading ...%s" % (currentnum,file_name))
+                            sys.stdout.flush()
                         await client.send_file(
                             channel_b,
                             'downloads/' + file_name,
                             caption=caption_text
-                        )
+                        ,progress_callback=callback)
+                        print(file_name+ " ----> Upload completed.")
                         break
                     except Exception as e:
                         if attempt < max_attempts - 1:
